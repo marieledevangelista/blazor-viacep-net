@@ -1,0 +1,76 @@
+@page "/"
+@using BlazorViaCep.Models
+@inject HttpClient Http
+
+<PageTitle>Consulta Via CEP</PageTitle>
+<h1>Consulta Via Cep</h1>
+<div class="form-group">
+    <label for="cepInput">CEP:</label>
+    <input id="cepInput" class="form-control" type="text" @bind="cep" placeholder="Digite o CEP (somente números)" maxlength="9" />
+</div>
+<button class="btn btn-primary mt-2" @onclick="ConsultarCep" disabled="@consultando">@(consultando ? "Consultando..." : "Consultar")</button>
+
+@if (endereco is not null)
+{
+    <h2 class="mt-4">Resultado:</h2>
+    <table class="table table-bordered">
+        <tbody>
+            <tr><th>CEP:</th><td>@endereco.Cep</td></tr>
+            <tr><th>Logradouro:</th><td>@endereco.Rua</td></tr>
+            <tr><th>Complemento:</th><td>@endereco.Complemento</td></tr>
+            <tr><th>Bairro:</th><td>@endereco.Bairro</td></tr>
+            <tr><th>Localidade:</th><td>@endereco.Cidade</td></tr>
+            <tr><th>UF:</th><td>@endereco.Uf</td></tr>
+            <tr><th>DDD:</th><td>@endereco.Ddd</td></tr>
+        </tbody>
+    </table>
+}
+@if (!string.IsNullOrWhiteSpace(erro))
+{
+    <div class="alert alert-danger mt-4" role="alert">@erro</div>
+}
+
+@code {
+    private string cep = string.Empty;
+    private Endereco? endereco;
+    private string erro = string.Empty;
+    private bool consultando;
+
+    private async Task ConsultarCep()
+    {
+        erro = string.Empty;
+        endereco = null;
+        var cepFormatado = new string(cep.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrWhiteSpace(cep))
+        {
+            erro = "Por favor, digite um CEP.";
+            return;
+        }
+        if (cepFormatado.Length != 8)
+        {
+            erro = "O CEP deve conter 8 dígitos.";
+            return;
+        }
+        consultando = true;
+        try
+        {
+            var resposta = await Http.GetFromJsonAsync<Endereco>($"https://viacep.com.br/ws/{cepFormatado}/json/");
+            if (resposta is null || resposta.Erro || string.IsNullOrWhiteSpace(resposta.Cep))
+                erro = "CEP não encontrado ou inválido.";
+            else
+                endereco = resposta;
+        }
+        catch (HttpRequestException)
+        {
+            erro = "Não foi possível conectar à API ViaCEP. Tente novamente.";
+        }
+        catch (Exception)
+        {
+            erro = "Ocorreu um erro ao consultar o CEP.";
+        }
+        finally
+        {
+            consultando = false;
+        }
+    }
+}
